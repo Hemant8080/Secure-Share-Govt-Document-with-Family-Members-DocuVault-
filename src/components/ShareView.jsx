@@ -1,0 +1,123 @@
+import { useEffect, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { db, storage } from '../firebase'
+import { collection, query, where, getDocs, updateDoc, doc as fsDoc, increment } from 'firebase/firestore'
+import { ref, getDownloadURL } from 'firebase/storage'
+import toast from 'react-hot-toast'
+
+const ShareView = () => {
+  const { token } = useParams()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [share, setShare] = useState(null)
+
+  useEffect(() => {
+    const loadShare = async () => {
+      try {
+        const q = query(collection(db, 'shares'), where('token', '==', token))
+        const snap = await getDocs(q)
+        if (snap.empty) {
+          setError('Invalid or expired link')
+          return
+        }
+        const docSnap = snap.docs[0]
+        const data = { id: docSnap.id, ...docSnap.data() }
+
+        // Expiry check
+        if (data.expiryDate) {
+          const today = new Date().toISOString().split('T')[0]
+          if (today > data.expiryDate) {
+            setError('This link has expired')
+            return
+          }
+        }
+        if (data.status !== 'active') {
+          setError('Access to this file has been revoked')
+          return
+        }
+
+        setShare(data)
+        // Increment access count (best effort)
+        try {
+          await updateDoc(fsDoc(db, 'shares', data.id), { accessCount: increment(1) })
+        } catch (_) {}
+      } catch (err) {
+        console.error(err)
+        setError('Failed to load shared file')
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadShare()
+  }, [token])
+
+  const handleDownload = async () => {
+    if (!share) return
+    try {
+      const url = share.downloadURL || (share.storagePath ? await getDownloadURL(ref(storage, share.storagePath)) : null)
+      if (!url) throw new Error('File URL not available')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = share.documentName || 'download'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to download')
+    }
+  }
+
+  const handleView = async () => {
+    if (!share) return
+    try {
+      const url = share.downloadURL || (share.storagePath ? await getDownloadURL(ref(storage, share.storagePath)) : null)
+      if (!url) throw new Error('File URL not available')
+      window.open(url, '_blank', 'noopener')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to open file')
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-lg">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div className="flex items-center">
+              <i className="fas fa-file-alt text-2xl text-primary"></i>
+              <span className="ml-2 text-xl font-bold text-gray-900">DocuVault</span>
+            </div>
+            <Link to="/login" className="text-sm text-primary hover:text-blue-700">Sign in</Link>
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-4xl mx-auto py-10 px-4">
+        {loading ? (
+          <div className="text-gray-600">Loading link...</div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">{error}</div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-4">{share.documentName}</h1>
+            <p className="text-gray-600 mb-6">Shared by: {share.recipientName ? 'Private link' : 'User'}</p>
+            <div className="flex gap-3">
+              {share.allowView && (
+                <button onClick={handleView} className="bg-gray-200 hover:bg-gray-300 text-gray-900 px-4 py-2 rounded">View</button>
+              )}
+              {share.allowDownload && (
+                <button onClick={handleDownload} className="bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded">Download</button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default ShareView
+
+

@@ -1,0 +1,33 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom styles for the application */
+.primary {
+  color: #1e40af;
+}
+
+.bg-primary {
+  background-color: #1e40af;
+}
+
+.secondary {
+  color: #3b82f6;
+}
+
+.bg-secondary {
+  background-color: #3b82f6;
+}
+
+.accent {
+  color: #06b6d4;
+}
+
+.bg-accent {
+  background-color: #06b6d4;
+}

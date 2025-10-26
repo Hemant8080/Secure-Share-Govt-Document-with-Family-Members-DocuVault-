@@ -14,10 +14,18 @@ const ShareView = () => {
   useEffect(() => {
     const loadShare = async () => {
       try {
-        const q = query(collection(db, 'shares'), where('token', '==', token))
+        // Query for the share by token and require status==active in the query
+        // so Firestore can validate security rules that depend on the 'status' field.
+        const q = query(
+          collection(db, 'shares'),
+          where('token', '==', token),
+          where('status', '==', 'active')
+        )
         const snap = await getDocs(q)
         if (snap.empty) {
+          // No matching share found (or permission denied). Provide helpful debug info.
           setError('Invalid or expired link')
+          console.debug('Share query returned empty for token:', token)
           return
         }
         const docSnap = snap.docs[0]
@@ -42,8 +50,10 @@ const ShareView = () => {
           await updateDoc(fsDoc(db, 'shares', data.id), { accessCount: increment(1) })
         } catch (_) {}
       } catch (err) {
-        console.error(err)
-        setError('Failed to load shared file')
+        console.error('Failed to load share', err)
+        // Surface more detailed error info to help debug permission/rule problems
+        const msg = err && err.code ? `${err.code}: ${err.message}` : String(err)
+        setError(`Failed to load shared file — ${msg}`)
       } finally {
         setLoading(false)
       }

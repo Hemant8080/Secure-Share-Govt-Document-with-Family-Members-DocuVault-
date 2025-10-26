@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { db, storage, auth } from '../firebase'
+import { db, storage } from '../firebase'
 import {
   collection,
   query,
@@ -45,13 +45,6 @@ const ShareDoc = ({ navigateTo, user }) => {
 
     setIsSharing(true)
     try {
-      // Ensure user is still authenticated before creating a share
-      if (!auth?.currentUser) {
-        console.error('User not authenticated when attempting to share')
-        toast.error('You must be signed in to share documents')
-        setIsSharing(false)
-        return
-      }
       const token = crypto.randomUUID()
       // Ensure we have a public download URL on the share so recipients don't need Storage auth
       let shareDownloadURL = selectedDoc.downloadURL || null
@@ -168,10 +161,6 @@ const ShareDoc = ({ navigateTo, user }) => {
           storagePath: data.storagePath,
           downloadURL: data.downloadURL
         }
-        , (err) => {
-          console.error('Documents snapshot error', err)
-          toast.error('Failed to load your documents: ' + (err?.message || err))
-        }
       })
       setDocuments(list)
     })
@@ -184,9 +173,6 @@ const ShareDoc = ({ navigateTo, user }) => {
     const unsubShares = onSnapshot(sharesQ, (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setSharedLinks(list)
-    }, (err) => {
-      console.error('Shares snapshot error', err)
-      toast.error('Failed to load shared links: ' + (err?.message || err))
     })
 
     return () => { unsubDocs(); unsubShares() }

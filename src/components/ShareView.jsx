@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { db, storage } from '../firebase'
+import { db, storage, auth } from '../firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, getDocs, updateDoc, doc as fsDoc, increment } from 'firebase/firestore'
 import { ref, getDownloadURL } from 'firebase/storage'
 import toast from 'react-hot-toast'
@@ -10,8 +11,16 @@ const ShareView = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [share, setShare] = useState(null)
+  const [isSignedIn, setIsSignedIn] = useState(false)
 
   useEffect(() => {
+    // Monitor auth state so we can tell whether the deployed app is actually signed in
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      const signed = !!user
+      setIsSignedIn(signed)
+      console.debug('ShareView auth state changed, signed in:', signed, 'user:', user?.email || null)
+    })
+
     const loadShare = async () => {
       try {
         // Query for the share by token and require status==active in the query
@@ -59,6 +68,9 @@ const ShareView = () => {
       }
     }
     loadShare()
+    return () => {
+      try { unsubAuth() } catch (_) {}
+    }
   }, [token])
 
   const handleDownload = async () => {
@@ -99,7 +111,13 @@ const ShareView = () => {
               <i className="fas fa-file-alt text-2xl text-primary"></i>
               <span className="ml-2 text-xl font-bold text-gray-900">DocuVault</span>
             </div>
-            <Link to="/login" className="text-sm text-primary hover:text-blue-700">Sign in</Link>
+            <div className="flex items-center gap-4">
+              <Link to="/login" className="text-sm text-primary hover:text-blue-700">Sign in</Link>
+              {/* Debug: show signed-in state on deployed site */}
+              <span className={`text-xs px-2 py-1 rounded ${isSignedIn ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                {isSignedIn ? 'Signed in' : 'Not signed in'}
+              </span>
+            </div>
           </div>
         </div>
       </nav>

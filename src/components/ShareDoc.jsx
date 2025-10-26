@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { db } from '../firebase'
+import { db, storage } from '../firebase'
 import {
   collection,
   query,
@@ -11,6 +11,7 @@ import {
   doc as fsDoc,
   orderBy
 } from 'firebase/firestore'
+import { ref as storageRef, getDownloadURL } from 'firebase/storage'
 import toast from 'react-hot-toast'
 import Navigation from './Navigation'
 
@@ -45,12 +46,22 @@ const ShareDoc = ({ navigateTo, user }) => {
     setIsSharing(true)
     try {
       const token = crypto.randomUUID()
+      // Ensure we have a public download URL on the share so recipients don't need Storage auth
+      let shareDownloadURL = selectedDoc.downloadURL || null
+      if (!shareDownloadURL && selectedDoc.storagePath) {
+        try {
+          shareDownloadURL = await getDownloadURL(storageRef(storage, selectedDoc.storagePath))
+        } catch (err) {
+          console.warn('Could not resolve downloadURL for shared document', err)
+          // proceed without URL; ShareView will attempt to fetch if allowed
+        }
+      }
       const newShare = {
         userId: user.id,
         documentId: selectedDoc.id,
         documentName: selectedDoc.name,
         storagePath: selectedDoc.storagePath || null,
-        downloadURL: selectedDoc.downloadURL || null,
+        downloadURL: shareDownloadURL || null,
         recipientEmail: shareForm.recipientEmail,
         recipientName: shareForm.recipientName,
         message: shareForm.message,

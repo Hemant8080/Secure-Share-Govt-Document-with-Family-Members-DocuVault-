@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Documents collection: authenticated users may create documents where userId == request.auth.uid
+    match /documents/{docId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Reads/updates/deletes allowed only to the owner
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // User profiles: users can manage their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Shares collection: owner can create/manage shares; public read allowed for active shares
+    match /shares/{shareId} {
+  // Owners can create shares where userId == auth.uid
+  allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+  // Owners can read/update/delete their own shares
+  allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+  // Public (unauthenticated) read allowed only when the share is active
+  allow read: if resource.data.status == 'active';
+    }
+
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
